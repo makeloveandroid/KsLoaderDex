@@ -2,6 +2,7 @@ package com.ks.loaderdex
 
 import android.app.Application
 import android.content.Context
+import androidx.multidex.MultiDexApplication
 import com.ks.loader.PatchClassLoaderUtils
 
 class App : Application() {

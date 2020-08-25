@@ -2,10 +2,20 @@ package com.ks.loader;
 
 import android.app.Application;
 import android.content.Context;
+import android.os.Build;
+import android.os.Environment;
 import android.util.Log;
 
-import com.ks.loader.utils.LogRelease;
+import com.ks.loader.utils.FileUtil;
 import com.ks.loader.utils.ReflectUtils;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -15,56 +25,38 @@ import com.ks.loader.utils.ReflectUtils;
  */
 public class PatchClassLoaderUtils {
 
-  private static final String TAG = "PatchClassLoaderUtils";
+    private static final String TAG = "PatchClassLoaderUtils";
+    private static final String DEX_PATH = Environment.getExternalStorageDirectory().getPath() + File.separator + "loaderdex/modelDex.dex";
 
-  public static boolean patch(Application application) {
-    try {
-      RePluginInternal.init(application);
+    public static boolean patch(Application application) {
+        try {
+            RePluginInternal.init(application);
 
-      // 获取Application的BaseContext （来自ContextWrapper）
-      Context oBase = application.getBaseContext();
-      if (oBase == null) {
-        LogRelease.e(TAG, "pclu.p: nf mb. ap cl=" + application.getClass());
-        return false;
-      }
+            Context oBase = application.getBaseContext();
+            if (oBase == null) {
+                return false;
+            }
 
-      // 获取mBase.mPackageInfo
-      // 1. ApplicationContext - Android 2.1
-      // 2. ContextImpl - Android 2.2 and higher
-      // 3. AppContextImpl - Android 2.2 and higher
-      Object oPackageInfo = ReflectUtils.readField(oBase, "mPackageInfo");
-      if (oPackageInfo == null) {
-        LogRelease.e(TAG, "pclu.p: nf mpi. mb cl=" + oBase.getClass());
-        return false;
-      }
+            Object oPackageInfo = ReflectUtils.readField(oBase, "mPackageInfo");
+            if (oPackageInfo == null) {
+                return false;
+            }
 
-      // mPackageInfo的类型主要有两种：
-      // 1. android.app.ActivityThread$PackageInfo - Android 2.1 - 2.3
-      // 2. android.app.LoadedApk - Android 2.3.3 and higher
-
-      // 获取mPackageInfo.mClassLoader
-      ClassLoader oClassLoader = (ClassLoader) ReflectUtils.readField(oPackageInfo, "mClassLoader");
-      if (oClassLoader == null) {
-        LogRelease.e(TAG,
-            "pclu.p: nf mpi. mb cl=" + oBase.getClass() + "; mpi cl=" + oPackageInfo.getClass());
-        return false;
-      }
-
-      // 外界可自定义ClassLoader的实现，但一定要基于RePluginClassLoader类
-      ClassLoader cl = CorePlugin.createClassLoader(oClassLoader);
-
-      // 将新的ClassLoader写入mPackageInfo.mClassLoader
-      ReflectUtils.writeField(oPackageInfo, "mClassLoader", cl);
-
-      // 设置线程上下文中的ClassLoader为RePluginClassLoader
-      // 防止在个别Java库用到了Thread.currentThread().getContextClassLoader()时，“用了原来的PathClassLoader”，或为空指针
-      Thread.currentThread().setContextClassLoader(cl);
-
-      Log.d(TAG, "patch: patch mClassLoader ok");
-    } catch (Throwable e) {
-      e.printStackTrace();
-      return false;
+            // 获取mPackageInfo.mClassLoader
+            ClassLoader oClassLoader = (ClassLoader) ReflectUtils.readField(oPackageInfo, "mClassLoader");
+            if (oClassLoader == null) {
+                return false;
+            }
+            ArrayList<File> dexFiles = new ArrayList<File>();
+            dexFiles.add(new File(DEX_PATH));
+            SystemClassLoaderAdder.installDexes(application, oClassLoader, application.getFilesDir(), dexFiles);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
     }
-    return true;
-  }
+
+
+
 }
