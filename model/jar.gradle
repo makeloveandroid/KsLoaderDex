@@ -78,7 +78,7 @@ task makeDir(dependsOn: ['deleteDir'], type: Exec) {
 /**
  * push调试文件
  */
-task inputDex(dependsOn: ['makeDir'], type: Exec) {
+task inputDex(dependsOn: ['makeDir'], type: Exec,group: "dex") {
     def mmPath = project.buildDir.absolutePath + "${File.separator}libs${File.separator}modelDex.dex"
     if (isWindows()) {
         def cmd = "adb push " + mmPath + " " + phonePath + "/modelDex.dex"
