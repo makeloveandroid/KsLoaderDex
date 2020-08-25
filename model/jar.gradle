@@ -1,0 +1,96 @@
+def isWindows() {
+    return System.properties['os.name'].toString().toLowerCase().contains('windows');
+}
+
+task buildJar(dependsOn: ['build'], type: Jar) {
+    archiveName = "modelJar.jar"
+    def javaClassDir = project.buildDir.absolutePath + "/intermediates/javac/debug/classes"
+    def ktClassDir = project.buildDir.absolutePath + "/tmp/kotlin-classes/debug"
+    from javaClassDir,ktClassDir
+}
+
+task makeTestDex(dependsOn: ['buildJar'], type: Exec) {
+    def jarPath = project.buildDir.absolutePath + "${File.separator}libs${File.separator}modelJar.jar"
+    def dexPath = project.buildDir.absolutePath + "${File.separator}libs${File.separator}modelDex.dex"
+
+    if (isWindows()) {
+        def dxPath = android.getSdkDirectory().getAbsolutePath() + "${File.separator}build-tools${File.separator}29.0.3${File.separator}dx.bat"
+        def cmd = dxPath + " --dex --output=" + dexPath + " " + jarPath
+        commandLine 'cmd', '/c', cmd
+    } else {
+        def dxPath = android.getSdkDirectory().getAbsolutePath() + "${File.separator}build-tools${File.separator}29.0.3${File.separator}dx"
+        def cmd = [dxPath, "--dex", "--output=" + dexPath, jarPath]
+        commandLine cmd
+    }
+    standardOutput = new ByteArrayOutputStream()
+    ext.output = {
+        return standardOutput.toString()
+    }
+}
+
+/**
+ * 创建目录
+ */
+// todo 注意这个参数是sd卡路径
+def phonePath = "/sdcard/loaderdex/"
+// 删除文件夹
+task deleteDir(dependsOn: ['makeTestDex'], type: Exec) {
+    try {
+        if (isWindows()) {
+            def cmd = "adb shell rm -rf " + phonePath
+            println(cmd)
+            commandLine 'cmd', '/c', cmd
+        } else {
+            def cmd = ["adb", "shell", "rm", "-rf", phonePath]
+            println(cmd)
+            commandLine cmd
+        }
+        standardOutput = new ByteArrayOutputStream()
+        ext.output = {
+            return standardOutput.toString()
+        }
+    } catch (e) {
+
+    }
+}
+
+task makeDir(dependsOn: ['deleteDir'], type: Exec) {
+    try {
+        if (isWindows()) {
+            def cmd = "adb shell mkdir -p " + phonePath
+            println(cmd)
+            commandLine 'cmd', '/c', cmd
+        } else {
+            def cmd = ["adb", "shell", "mkdir","-p", phonePath]
+            println(cmd)
+            commandLine cmd
+        }
+        standardOutput = new ByteArrayOutputStream()
+        ext.output = {
+            return standardOutput.toString()
+        }
+    } catch (e) {
+
+    }
+}
+
+
+/**
+ * push调试文件
+ */
+task inputDex(dependsOn: ['makeDir'], type: Exec) {
+    def mmPath = project.buildDir.absolutePath + "${File.separator}libs${File.separator}modelDex.dex"
+    if (isWindows()) {
+        def cmd = "adb push " + mmPath + " " + phonePath + "/modelDex.dex"
+        println(cmd)
+        commandLine 'cmd', '/c', cmd
+    } else {
+        def cmd = ["adb", "push", mmPath, phonePath + "/modelDex.dex"]
+        commandLine cmd
+    }
+
+    standardOutput = new ByteArrayOutputStream()
+    ext.output = {
+        return standardOutput.toString()
+    }
+}

@@ -1,0 +1,4 @@
+rootProject.name='KSLoaderDex'
+include ':app'
+include ':loader-host-library'
+include ':model'
